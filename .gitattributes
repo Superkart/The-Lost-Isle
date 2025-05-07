@@ -1,0 +1,47 @@
+# Set default behavior to automatically normalize line endings
+* text=auto
+# Unity specific
+# Treat .unity, .prefab, .mat, .asset, .scene, .controller, and other binary files as binary
+*.unity binary
+*.prefab binary
+*.mat binary
+*.asset binary
+*.scene binary
+*.controller binary
+*.anim binary
+*.cginc binary
+*.shader binary
+*.physicMaterial2D binary
+*.physicMaterial binary
+*.tmPro binary
+*.ttf binary
+*.otf binary
+*.fnt binary
+*.fbx binary
+*.jpg binary
+*.jpeg binary
+*.png filter=lfs diff=lfs merge=lfs -text
+*.tga binary
+*.psd binary
+*.mp3 binary
+*.wav binary
+*.ogg binary
+*.mp4 binary
+*.mov binary
+*.avi binary
+# Force text files (like C# scripts) to use LF (Line Feed) for line endings
+*.cs text eol=lf
+*.shader text eol=lf
+*.txt text eol=lf
+# Ensure that Unity's .gitignore files are respected
+# Ignore generated files like logs, etc.
+[Ll]ogs/* export-ignore
+[Ll]ogFiles/* export-ignore
+*.bak export-ignore
+*.swp export-ignore
+.DS_Store export-ignore
+.idea export-ignore
+# End of Unity .gitattributes configuration
+*.dll filter=lfs diff=lfs merge=lfs -text
+*.dylib filter=lfs diff=lfs merge=lfs -text
+*.so filter=lfs diff=lfs merge=lfs -text
