@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.AI;
 
 public class OxygenSpawner : MonoBehaviour
 {
@@ -7,7 +8,10 @@ public class OxygenSpawner : MonoBehaviour
     public Transform player;
     public PathFinder pathfinder;
     public UIArrowIndicator uiArrowIndicator;
-    public LayerMask walkableLayerMask; // Layers to raycast against for spawning
+    public LayerMask walkableLayerMask; // Optional: Layers to raycast against for spawning
+    [SerializeField] private bool useLayerMask = false; // If false, raycasts hit all layers (no editor changes required)
+    [SerializeField] private float maxSlopeAngle = 45f; // Reject steep surfaces
+    [SerializeField] private bool snapToNavMesh = true; // Try to snap to NavMesh if available
 
     public float spawnRadius = 30f;
     public float criticalOxygenLevel = 30f;
@@ -102,12 +106,34 @@ public class OxygenSpawner : MonoBehaviour
         Vector3 randomDirection = Random.insideUnitCircle * Random.Range(minSpawnDistance, maxSpawnDistance);
         Vector3 spawnPos = player.position + new Vector3(randomDirection.x, 10f, randomDirection.y); // Start above to raycast down
 
-        // Raycast down to find ground ONLY on walkable layers
+        // Raycast down to find ground. If useLayerMask is false or mask is 0, hit everything.
         RaycastHit hit;
-        if (Physics.Raycast(spawnPos, Vector3.down, out hit, 20f, walkableLayerMask))
+        bool didHit = useLayerMask && walkableLayerMask.value != 0
+            ? Physics.Raycast(spawnPos, Vector3.down, out hit, 50f, walkableLayerMask)
+            : Physics.Raycast(spawnPos, Vector3.down, out hit, 50f);
+
+        if (didHit)
         {
+            // Skip invisible kill plane tagged as "Death"
+            if (hit.collider.CompareTag("Death"))
+                continue;
+
+            // Reject overly steep surfaces
+            if (Vector3.Angle(hit.normal, Vector3.up) > maxSlopeAngle)
+                continue;
+
             // Spawn on the ground surface
             Vector3 groundSpawnPos = hit.point + Vector3.up * 1f;
+
+            // Optionally snap to closest NavMesh position (if a NavMesh exists)
+            if (snapToNavMesh)
+            {
+                NavMeshHit navHit;
+                if (NavMesh.SamplePosition(groundSpawnPos, out navHit, 2f, NavMesh.AllAreas))
+                {
+                    groundSpawnPos = navHit.position + Vector3.up * 0.5f;
+                }
+            }
 
             // Check if space is free
             float checkRadius = 1f;
@@ -128,12 +154,25 @@ public class OxygenSpawner : MonoBehaviour
         }
     }
 
-    // Fallback: spawn directly above player and raycast down on walkable layers only
+    // Fallback: spawn directly above player and raycast down
     Debug.LogWarning("Could not find suitable spawn location. Using fallback.");
     Vector3 fallbackPos = player.position + Vector3.up * 10f;
     RaycastHit fallbackHit;
-    if (Physics.Raycast(fallbackPos, Vector3.down, out fallbackHit, 20f, walkableLayerMask))
-        return fallbackHit.point + Vector3.up * 1f;
+    bool fallbackDidHit = useLayerMask && walkableLayerMask.value != 0
+        ? Physics.Raycast(fallbackPos, Vector3.down, out fallbackHit, 50f, walkableLayerMask)
+        : Physics.Raycast(fallbackPos, Vector3.down, out fallbackHit, 50f);
+
+    if (fallbackDidHit && !fallbackHit.collider.CompareTag("Death") && Vector3.Angle(fallbackHit.normal, Vector3.up) <= maxSlopeAngle)
+    {
+        Vector3 pos = fallbackHit.point + Vector3.up * 1f;
+        if (snapToNavMesh)
+        {
+            NavMeshHit navHit;
+            if (NavMesh.SamplePosition(pos, out navHit, 2f, NavMesh.AllAreas))
+                pos = navHit.position + Vector3.up * 0.5f;
+        }
+        return pos;
+    }
     
     return player.position + Vector3.up * 1f;
 }
