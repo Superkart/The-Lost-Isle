@@ -7,6 +7,7 @@ public class OxygenSpawner : MonoBehaviour
     public Transform player;
     public PathFinder pathfinder;
     public UIArrowIndicator uiArrowIndicator;
+    public LayerMask walkableLayerMask; // Layers to raycast against for spawning
 
     public float spawnRadius = 30f;
     public float criticalOxygenLevel = 30f;
@@ -97,34 +98,44 @@ public class OxygenSpawner : MonoBehaviour
     int maxAttempts = 20;
     for (int i = 0; i < maxAttempts; i++)
     {
-        Vector3 randomDirection = Random.insideUnitSphere * maxSpawnDistance + player.position;
-        randomDirection.y = player.position.y + 5f;
+        // Spawn in a random direction around the player (not dependent on facing direction)
+        Vector3 randomDirection = Random.insideUnitCircle * Random.Range(minSpawnDistance, maxSpawnDistance);
+        Vector3 spawnPos = player.position + new Vector3(randomDirection.x, 10f, randomDirection.y); // Start above to raycast down
 
-        float distanceFromPlayer = Vector3.Distance(player.position, randomDirection);
-        if (distanceFromPlayer < minSpawnDistance)
-            continue;
-
-        // Check if space is free using a sphere overlap (adjust radius as needed)
-        float checkRadius = 1f; // Size of your oxygen tank
-        Collider[] hits = Physics.OverlapSphere(randomDirection, checkRadius);
-        bool hasBlockingObject = false;
-
-        foreach (var hit in hits)
+        // Raycast down to find ground ONLY on walkable layers
+        RaycastHit hit;
+        if (Physics.Raycast(spawnPos, Vector3.down, out hit, 20f, walkableLayerMask))
         {
-            if (hit.attachedRigidbody != null && hit.gameObject != player.gameObject)
-            {
-                hasBlockingObject = true;
-                break;
-            }
-        }
+            // Spawn on the ground surface
+            Vector3 groundSpawnPos = hit.point + Vector3.up * 1f;
 
-        if (!hasBlockingObject)
-            return randomDirection;
+            // Check if space is free
+            float checkRadius = 1f;
+            Collider[] hits = Physics.OverlapSphere(groundSpawnPos, checkRadius);
+            bool hasBlockingObject = false;
+
+            foreach (var collider in hits)
+            {
+                if (collider.attachedRigidbody != null && collider.gameObject != player.gameObject)
+                {
+                    hasBlockingObject = true;
+                    break;
+                }
+            }
+
+            if (!hasBlockingObject)
+                return groundSpawnPos;
+        }
     }
 
-    // Fallback: just use max distance forward if all attempts fail
-    Debug.LogWarning("Could not find unoccupied space to spawn oxygen tank. Spawning fallback.");
-    return player.position + player.forward * maxSpawnDistance;
+    // Fallback: spawn directly above player and raycast down on walkable layers only
+    Debug.LogWarning("Could not find suitable spawn location. Using fallback.");
+    Vector3 fallbackPos = player.position + Vector3.up * 10f;
+    RaycastHit fallbackHit;
+    if (Physics.Raycast(fallbackPos, Vector3.down, out fallbackHit, 20f, walkableLayerMask))
+        return fallbackHit.point + Vector3.up * 1f;
+    
+    return player.position + Vector3.up * 1f;
 }
 
 }
